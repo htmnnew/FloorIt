@@ -1,0 +1,2383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Home Layout Planner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+/* Home Layout Planner — warm + homey */
+:root {
+  --bg: #f5efe3;
+  --bg-deep: #ece4d2;
+  --panel: #fbf6ec;
+  --panel-edge: #e5dbc4;
+  --ink: #2a241b;
+  --ink-soft: #6d6452;
+  --ink-mute: #9a9079;
+  --accent: #c25a3a;
+  --accent-soft: #e8c8b8;
+  --selection: #c25a3a;
+  --shadow: 0 1px 2px rgba(40, 30, 15, 0.08), 0 4px 14px rgba(40, 30, 15, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+#root { height: 100%; }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Layout shell */
+.app {
+  display: grid;
+  grid-template-columns: 308px 1fr;
+  height: 100%;
+}
+
+/* Sidebar */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--panel-edge);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.brand {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--panel-edge);
+}
+.brand .title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.brand .sub {
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.02em;
+}
+
+.catalog {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 24px;
+}
+.catalog::-webkit-scrollbar { width: 8px; }
+.catalog::-webkit-scrollbar-thumb { background: #d9cfb8; border-radius: 4px; }
+.catalog::-webkit-scrollbar-track { background: transparent; }
+
+.cat-section {
+  margin-top: 14px;
+}
+.cat-title {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  margin: 0 8px 8px;
+  font-weight: 600;
+}
+.cat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.cat-item {
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 8px 8px 6px;
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 120ms, transform 120ms, box-shadow 120ms;
+}
+.cat-item:hover {
+  border-color: #d4b893;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+.cat-item:active { cursor: grabbing; }
+.cat-item.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.cat-preview {
+  height: 54px;
+  background: #f4ead4;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ede4cd;
+}
+.cat-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.cat-dim {
+  font-size: 10px;
+  color: var(--ink-mute);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Canvas */
+.canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, #f8f1de 0%, #ece4d2 100%);
+}
+
+.canvas-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(0,0,0,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0,0,0,0.025) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+}
+
+.canvas-scroll {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.plan-stage {
+  position: relative;
+  filter: drop-shadow(0 12px 32px rgba(40, 30, 15, 0.16));
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.canvas-wrap.panning,
+.canvas-wrap.panning * { cursor: grabbing !important; }
+.canvas-wrap.pan-ready,
+.canvas-wrap.pan-ready * { cursor: grab !important; }
+
+.plan-svg {
+  display: block;
+  background: #fff;
+  border-radius: 2px;
+  user-select: none;
+}
+
+/* Upload zone */
+.upload-zone {
+  width: min(720px, 80vw);
+  max-width: 90%;
+  aspect-ratio: 4 / 3;
+  border: 2px dashed #c8b890;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, transform 140ms;
+  padding: 32px;
+  text-align: center;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  background: rgba(255,255,255,0.85);
+  border-color: var(--accent);
+  transform: scale(1.005);
+}
+.upload-zone.dragover { border-style: solid; }
+.upload-zone .upload-icon {
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  display: grid; place-items: center;
+  color: var(--accent);
+  font-size: 38px;
+}
+.upload-zone .upload-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.upload-zone .upload-sub {
+  font-size: 13px;
+  color: var(--ink-soft);
+  max-width: 380px;
+  line-height: 1.5;
+}
+.upload-zone .upload-cta {
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+.upload-zone .upload-formats {
+  font-size: 11px;
+  color: var(--ink-mute);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 4px;
+}
+
+/* Toolbar */
+.toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+}
+.tb-btn {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: 500 12px 'DM Sans', sans-serif;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: var(--shadow);
+  transition: background 120ms, border-color 120ms;
+}
+.tb-btn:hover:not(:disabled) { background: #fff; border-color: #d4b893; }
+.tb-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.tb-btn.active { background: var(--ink); color: #f5efe3; border-color: var(--ink); }
+.tb-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tb-btn.primary:hover:not(:disabled) { background: #a94929; border-color: #a94929; }
+
+.tb-sep {
+  width: 1px;
+  align-self: stretch;
+  background: var(--panel-edge);
+  margin: 2px 2px;
+}
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 11.5px 'DM Sans', sans-serif;
+  color: var(--ink-soft);
+  padding: 0 8px 0 4px;
+  white-space: nowrap;
+}
+.save-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6ba368;
+  box-shadow: 0 0 0 2px rgba(107, 163, 104, 0.18);
+}
+.save-dot.err { background: #c4584a; box-shadow: 0 0 0 2px rgba(196, 88, 74, 0.18); }
+
+/* Calibration prompt */
+.cal-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #f8f1de;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+.cal-banner b { color: #f8d3b8; font-weight: 600; }
+.cal-banner .cal-cancel {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  color: #f8f1de;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font: 500 11px 'DM Sans', sans-serif;
+  cursor: pointer;
+}
+.cal-banner .cal-cancel:hover { background: rgba(255,255,255,0.08); }
+
+/* Calibration distance modal */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(40,30,15,0.35);
+  z-index: 20;
+  display: grid;
+  place-items: center;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 14px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+}
+.modal h3 { margin: 0 0 6px; font-size: 16px; }
+.modal p { margin: 0 0 16px; font-size: 13px; color: var(--ink-soft); line-height: 1.5; }
+.modal .row {
+  display: flex; gap: 8px; align-items: center;
+}
+.modal input[type="number"] {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: 500 14px 'JetBrains Mono', monospace;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+  -moz-appearance: textfield;
+}
+.modal input::-webkit-outer-spin-button,
+.modal input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.modal input:focus { border-color: var(--accent); }
+.modal .unit-toggle {
+  display: flex;
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  padding: 2px;
+}
+.modal .unit-toggle button {
+  background: transparent; border: 0;
+  padding: 6px 10px;
+  font: 500 11px 'JetBrains Mono', monospace;
+  color: var(--ink-soft);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.modal .unit-toggle button.active {
+  background: var(--ink);
+  color: #f8f1de;
+}
+.modal .actions {
+  display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end;
+}
+.modal .btn {
+  border: 1px solid var(--panel-edge);
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: 500 12px 'DM Sans', sans-serif;
+  cursor: pointer;
+  color: var(--ink);
+}
+.modal .btn.primary {
+  background: var(--accent); color: #fff; border-color: var(--accent);
+}
+.modal .btn.primary:hover { background: #a94929; }
+.modal .btn:hover:not(.primary) { background: #f7eed5; }
+
+/* Zoom chip — top-left under toolbar */
+.zoom-chip {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+.zoom-chip button {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  font: 500 14px 'DM Sans', sans-serif;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.zoom-chip button:hover { background: #f7eed5; }
+.zoom-chip .zoom-level {
+  font: 500 11.5px 'JetBrains Mono', monospace;
+  color: var(--ink-soft);
+  padding: 0 8px;
+  min-width: 48px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+.zoom-chip .zoom-level:hover { background: #f7eed5; color: var(--ink); }
+.zoom-chip .zoom-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--panel-edge);
+  margin: 0 2px;
+}
+.zoom-chip .zoom-fit {
+  font: 500 11px 'DM Sans', sans-serif;
+  color: var(--ink-soft);
+  padding: 0 10px;
+  width: auto;
+}
+.zoom-chip .zoom-fit:hover { color: var(--ink); }
+
+/* Hints panel */
+.hints {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  flex-wrap: wrap;
+  max-width: calc(100% - 32px);
+}
+.hints kbd {
+  background: #fff;
+  border: 1px solid var(--panel-edge);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font: 500 10px 'JetBrains Mono', monospace;
+  color: var(--ink);
+}
+.hints .hint-grp { display: flex; gap: 6px; align-items: center; }
+
+/* Scale chip — bottom right corner */
+.scale-chip {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font: 500 11.5px 'JetBrains Mono', monospace;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  z-index: 5;
+}
+.scale-chip .scale-bar {
+  width: 60px; height: 6px;
+  background: linear-gradient(to right, var(--ink) 50%, transparent 50%);
+  background-size: 12px 6px;
+  border-bottom: 1px solid var(--ink);
+}
+.scale-chip button {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font: 500 11px 'DM Sans', sans-serif;
+  cursor: pointer;
+  padding: 0;
+}
+.scale-chip button:hover { text-decoration: underline; }
+
+/* Floating dimension tag */
+.dim-tag {
+  position: absolute;
+  pointer-events: none;
+  background: var(--ink);
+  color: #f8f1de;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font: 500 11px 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  transform: translate(-50%, -130%);
+  z-index: 15;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.dim-tag::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -3px;
+  width: 6px; height: 6px;
+  background: var(--ink);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* Furniture style */
+.f-shadow {
+  filter: drop-shadow(0 1px 1.5px rgba(40,30,15,0.18));
+}
+
+/* Drag ghost */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.85;
+  transform: translate(-50%, -50%);
+}
+
+.placed:hover { cursor: move; }
+.handle { cursor: pointer; }
+.rot-handle { cursor: grab; }
+.resize-handle { cursor: nwse-resize; }
+
+/* Hidden file input */
+.file-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Calibration line on canvas */
+.cal-line {
+  stroke: #c25a3a;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+.cal-dot {
+  fill: #fff;
+  stroke: #c25a3a;
+  stroke-width: 2;
+}
+
+/* When in calibrate mode */
+.canvas-wrap.calibrating { cursor: crosshair; }
+.canvas-wrap.calibrating .placed { pointer-events: none; }
+
+/* Ruler / measurement */
+.canvas-wrap.measuring { cursor: crosshair; }
+.canvas-wrap.measuring .placed { pointer-events: none; }
+.measure-line {
+  stroke: #2f6f5f;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  fill: none;
+}
+.measure-line.preview {
+  stroke-dasharray: 6 5;
+  opacity: 0.85;
+}
+.measure-dot {
+  fill: #fff;
+  stroke: #2f6f5f;
+  stroke-width: 2;
+}
+.measure-tag {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: #2f6f5f;
+  color: #f5efe3;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px 4px 10px;
+  border-radius: 999px;
+  pointer-events: auto;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(40, 30, 15, 0.18);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+}
+.measure-tag .measure-x {
+  border: 0;
+  background: rgba(255, 255, 255, 0.18);
+  color: #f5efe3;
+  width: 16px;
+  height: 16px;
+  line-height: 14px;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+.measure-tag .measure-x:hover { background: rgba(255, 255, 255, 0.32); }
+.measure-tag.preview { background: rgba(47, 111, 95, 0.92); }
+
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+/* ============ CATALOG ============ */
+// Furniture catalog — dimensions in inches (real-world).
+// Soft top-down rendering. Footprints include realistic clearance.
+
+const CATALOG = [
+  // BEDS
+  { id: 'bed-king',     cat: 'Beds',    label: 'King',           w: 76, h: 80, kind: 'bed' },
+  { id: 'bed-queen',    cat: 'Beds',    label: 'Queen',          w: 60, h: 80, kind: 'bed' },
+  { id: 'bed-full',     cat: 'Beds',    label: 'Full',           w: 54, h: 75, kind: 'bed' },
+  { id: 'bed-twinxl',   cat: 'Beds',    label: 'Twin XL',        w: 39, h: 80, kind: 'bed' },
+  { id: 'bed-twin',     cat: 'Beds',    label: 'Twin',           w: 39, h: 75, kind: 'bed' },
+  { id: 'bed-fold',     cat: 'Beds',    label: 'Foldout Single', w: 36, h: 75, kind: 'foldbed' },
+
+  // KIDS
+  { id: 'crib',         cat: 'Baby',    label: 'Crib',           w: 30, h: 54, kind: 'crib' },
+  { id: 'mini-crib',    cat: 'Baby',    label: 'Mini Crib',      w: 24, h: 38, kind: 'crib' },
+  { id: 'changing',     cat: 'Baby',    label: 'Changing Table', w: 36, h: 20, kind: 'changing' },
+  { id: 'rocker',       cat: 'Baby',    label: 'Glider',         w: 32, h: 34, kind: 'armchair' },
+  { id: 'play-mat',     cat: 'Baby',    label: 'Play Mat',       w: 60, h: 60, kind: 'playmat' },
+  { id: 'toy-bin',      cat: 'Baby',    label: 'Toy Storage',    w: 32, h: 14, kind: 'dresser' },
+
+  // SOFAS
+  { id: 'sofa-3',       cat: 'Living',  label: '3-Seat Sofa',    w: 84, h: 36, kind: 'sofa', seats: 3 },
+  { id: 'sofa-2',       cat: 'Living',  label: 'Loveseat',       w: 60, h: 36, kind: 'sofa', seats: 2 },
+  { id: 'sectional',    cat: 'Living',  label: 'Sectional',      w: 100, h: 70, kind: 'sectional' },
+  { id: 'armchair',     cat: 'Living',  label: 'Armchair',       w: 33, h: 33, kind: 'armchair' },
+  { id: 'ottoman',      cat: 'Living',  label: 'Ottoman',        w: 24, h: 18, kind: 'ottoman' },
+  { id: 'coffee',       cat: 'Living',  label: 'Coffee Table',   w: 48, h: 24, kind: 'coffee' },
+  { id: 'side-tbl',     cat: 'Living',  label: 'Side Table',     w: 20, h: 20, kind: 'sidetable' },
+
+  // DINING
+  { id: 'dine-4r',      cat: 'Dining',  label: '4-seat (rect)',  w: 60, h: 36, kind: 'dining', seats: 4 },
+  { id: 'dine-6r',      cat: 'Dining',  label: '6-seat (rect)',  w: 72, h: 36, kind: 'dining', seats: 6 },
+  { id: 'dine-rnd-4',   cat: 'Dining',  label: 'Round 4',        w: 48, h: 48, kind: 'roundDine', seats: 4 },
+  { id: 'dine-rnd-6',   cat: 'Dining',  label: 'Round 6',        w: 60, h: 60, kind: 'roundDine', seats: 6 },
+  { id: 'bar-stool',    cat: 'Dining',  label: 'Bar Stool',      w: 16, h: 16, kind: 'stool' },
+
+  // OFFICE / DEN
+  { id: 'desk',         cat: 'Office',  label: 'Desk',           w: 48, h: 24, kind: 'desk' },
+  { id: 'desk-l',       cat: 'Office',  label: 'Desk Large',     w: 60, h: 28, kind: 'desk' },
+  { id: 'desk-L',       cat: 'Office',  label: 'L-Desk',         w: 60, h: 60, kind: 'lDesk' },
+  { id: 'office-chair', cat: 'Office',  label: 'Office Chair',   w: 24, h: 24, kind: 'officeChair' },
+  { id: 'filing',       cat: 'Office',  label: 'Filing Cabinet', w: 18, h: 18, kind: 'dresser' },
+
+  // STORAGE
+  { id: 'dresser',      cat: 'Storage', label: 'Dresser',        w: 60, h: 20, kind: 'dresser' },
+  { id: 'dresser-tall', cat: 'Storage', label: 'Tall Dresser',   w: 36, h: 20, kind: 'dresser' },
+  { id: 'wardrobe',     cat: 'Storage', label: 'Wardrobe',       w: 48, h: 24, kind: 'wardrobe' },
+  { id: 'bookshelf',    cat: 'Storage', label: 'Bookshelf',      w: 36, h: 12, kind: 'bookshelf' },
+  { id: 'bookshelf-w',  cat: 'Storage', label: 'Wide Shelf',     w: 60, h: 12, kind: 'bookshelf' },
+  { id: 'nightstand',   cat: 'Storage', label: 'Nightstand',     w: 22, h: 18, kind: 'nightstand' },
+  { id: 'console',      cat: 'Storage', label: 'Console',        w: 60, h: 16, kind: 'console' },
+
+  // MEDIA
+  { id: 'tv-console',   cat: 'Media',   label: 'TV Console',     w: 60, h: 18, kind: 'tvConsole' },
+  { id: 'tv-65',        cat: 'Media',   label: '65" TV',         w: 57, h: 4,  kind: 'tv' },
+  { id: 'tv-55',        cat: 'Media',   label: '55" TV',         w: 49, h: 4,  kind: 'tv' },
+
+  // RUGS
+  { id: 'rug-8x10',     cat: 'Rugs',    label: 'Rug  8×10',      w: 96, h: 120, kind: 'rug' },
+  { id: 'rug-6x9',      cat: 'Rugs',    label: 'Rug  6×9',       w: 72, h: 108, kind: 'rug' },
+  { id: 'rug-5x8',      cat: 'Rugs',    label: 'Rug  5×8',       w: 60, h: 96,  kind: 'rug' },
+  { id: 'rug-rnd',      cat: 'Rugs',    label: 'Round Rug 6\'',  w: 72, h: 72,  kind: 'rugRound' },
+
+  // PLANTS
+  { id: 'plant-l',      cat: 'Plants',  label: 'Large Plant',    w: 22, h: 22, kind: 'plant' },
+  { id: 'plant-m',      cat: 'Plants',  label: 'Plant',          w: 16, h: 16, kind: 'plant' },
+  { id: 'plant-s',      cat: 'Plants',  label: 'Small Plant',    w: 11, h: 11, kind: 'plant' },
+];
+
+const CAT_ORDER = ['Living', 'Dining', 'Beds', 'Baby', 'Office', 'Storage', 'Media', 'Rugs', 'Plants'];
+
+window.CATALOG = CATALOG;
+window.CAT_ORDER = CAT_ORDER;
+
+
+/* ============ FURNITURE ============ */
+// Top-down furniture rendering. Coordinates are local to the piece:
+// origin (0,0) at top-left of the footprint, drawn within w × h.
+// Style: soft cream fills, warm wood-tone details, subtle inner stroke.
+
+const FURN = 'var(--furn)';        // #fbf6ec
+const EDGE = 'var(--furn-edge)';   // #cab78f
+const DETAIL = 'var(--furn-detail)'; // #ddc9a4
+
+// To keep these usable in raw SVG (without CSS vars), use literal colors:
+const C = {
+  body: '#fbf6ec',
+  edge: '#b9a37a',
+  edgeLight: '#d6c39c',
+  detail: '#e7d3aa',
+  cushion: '#f1e6cb',
+  wood: '#b88f5c',
+  rug: '#e7d3a8',
+  rug2: '#caac7b',
+  plant: '#7e8f63',
+  plantDark: '#5b6c45',
+  pot: '#a17451',
+  tv: '#28201a',
+  fabric: '#ece1c4',
+  metal: '#aaa090',
+  pillow: '#fff5dd',
+};
+
+function rr(x, y, w, h, r) {
+  return <rect x={x} y={y} width={w} height={h} rx={r} ry={r} />;
+}
+
+/* -------- Beds -------- */
+function Bed({ w, h }) {
+  // mattress with pillow row at "head" (top edge of h)
+  const headPad = Math.min(10, h * 0.18);
+  return (
+    <g>
+      {/* mattress */}
+      <rect x={0} y={0} width={w} height={h} rx={3} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      {/* blanket/topsheet covering bottom 60% */}
+      <rect x={1.2} y={headPad + 2} width={w - 2.4} height={h - headPad - 3.2} rx={2}
+            fill={C.fabric} stroke={C.edge} strokeWidth={0.4} />
+      {/* pillows row */}
+      {w >= 50 ? (
+        <g>
+          <rect x={3} y={2} width={(w - 8) / 2} height={headPad - 3} rx={2}
+                fill={C.pillow} stroke={C.edge} strokeWidth={0.4} />
+          <rect x={w / 2 + 1} y={2} width={(w - 8) / 2} height={headPad - 3} rx={2}
+                fill={C.pillow} stroke={C.edge} strokeWidth={0.4} />
+        </g>
+      ) : (
+        <rect x={3} y={2} width={w - 6} height={headPad - 3} rx={2}
+              fill={C.pillow} stroke={C.edge} strokeWidth={0.4} />
+      )}
+      {/* fold line on blanket */}
+      <line x1={4} y1={headPad + 12} x2={w - 4} y2={headPad + 12} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+function FoldBed({ w, h }) {
+  // similar to bed but with seam line indicating fold
+  return (
+    <g>
+      <Bed w={w} h={h} />
+      <line x1={0} y1={h / 2} x2={w} y2={h / 2} stroke={C.edge} strokeWidth={0.5} strokeDasharray="2 1.5" />
+    </g>
+  );
+}
+
+/* -------- Crib -------- */
+function Crib({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={3} fill={C.body} stroke={C.edge} strokeWidth={0.7} />
+      {/* slats along sides */}
+      {Array.from({ length: 9 }).map((_, i) => (
+        <line key={'l' + i} x1={1.5} y1={3 + (i * (h - 6)) / 8} x2={3} y2={3 + (i * (h - 6)) / 8}
+              stroke={C.edge} strokeWidth={0.4} />
+      ))}
+      {Array.from({ length: 9 }).map((_, i) => (
+        <line key={'r' + i} x1={w - 3} y1={3 + (i * (h - 6)) / 8} x2={w - 1.5} y2={3 + (i * (h - 6)) / 8}
+              stroke={C.edge} strokeWidth={0.4} />
+      ))}
+      {/* mattress inset */}
+      <rect x={3.5} y={3.5} width={w - 7} height={h - 7} rx={2} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Changing table -------- */
+function Changing({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={2} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <rect x={2} y={1.5} width={w - 4} height={h - 3} rx={1.5} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+      <rect x={w / 2 - 6} y={2.5} width={12} height={h - 5} rx={1} fill={C.pillow} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Sofa -------- */
+function Sofa({ w, h, seats = 3 }) {
+  const armW = 6;
+  const backH = 7;
+  return (
+    <g>
+      {/* base */}
+      <rect x={0} y={0} width={w} height={h} rx={4} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      {/* back (along top edge) */}
+      <rect x={0} y={0} width={w} height={backH} rx={3} fill={C.detail} stroke={C.edge} strokeWidth={0.4} />
+      {/* arms */}
+      <rect x={0} y={0} width={armW} height={h} rx={3} fill={C.detail} stroke={C.edge} strokeWidth={0.4} />
+      <rect x={w - armW} y={0} width={armW} height={h} rx={3} fill={C.detail} stroke={C.edge} strokeWidth={0.4} />
+      {/* seat cushions */}
+      {Array.from({ length: seats }).map((_, i) => {
+        const innerW = w - armW * 2 - (seats + 1) * 1;
+        const cushW = innerW / seats;
+        const x = armW + 1 + i * (cushW + 1);
+        return (
+          <rect key={i} x={x} y={backH + 1.2} width={cushW} height={h - backH - 2.5}
+                rx={2} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+        );
+      })}
+    </g>
+  );
+}
+
+/* -------- Sectional -------- */
+function Sectional({ w, h }) {
+  // L-shape: long part on top, short ell on right side
+  const armW = 6;
+  const backH = 7;
+  const longH = 36;       // height of long sofa part
+  const ellW = 36;        // width of perpendicular ell
+  // Long part (top)
+  // Short ell (right, going down)
+  return (
+    <g>
+      {/* L-shape body via path */}
+      <path d={`M 0 0 H ${w} V ${h} H ${w - ellW} V ${longH} H 0 Z`}
+            fill={C.body} stroke={C.edge} strokeWidth={0.6} strokeLinejoin="round" />
+      {/* Back along outer edges (top + right) */}
+      <rect x={0} y={0} width={w} height={backH} fill={C.detail} stroke={C.edge} strokeWidth={0.3} />
+      <rect x={w - backH} y={0} width={backH} height={h} fill={C.detail} stroke={C.edge} strokeWidth={0.3} />
+      {/* outer arm corner */}
+      <rect x={0} y={0} width={armW} height={longH} fill={C.detail} stroke={C.edge} strokeWidth={0.3} />
+      <rect x={w - ellW} y={h - armW} width={ellW} height={armW} fill={C.detail} stroke={C.edge} strokeWidth={0.3} />
+      {/* cushions long part */}
+      <rect x={armW + 1} y={backH + 1} width={(w - armW - backH - 3) / 2} height={longH - backH - 2.5}
+            rx={2} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+      <rect x={armW + 2 + (w - armW - backH - 3) / 2} y={backH + 1}
+            width={(w - armW - backH - 3) / 2} height={longH - backH - 2.5}
+            rx={2} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+      {/* corner cushion */}
+      <rect x={w - ellW + 1} y={longH + 1} width={ellW - backH - 2} height={h - longH - armW - 2}
+            rx={2} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Armchair -------- */
+function Armchair({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={6} fill={C.detail} stroke={C.edge} strokeWidth={0.5} />
+      <rect x={3} y={5} width={w - 6} height={h - 7} rx={4} fill={C.cushion} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Ottoman / Coffee / Side / Console / Stool -------- */
+function Ottoman({ w, h }) {
+  return <rect x={0} y={0} width={w} height={h} rx={3} fill={C.cushion} stroke={C.edge} strokeWidth={0.5} />;
+}
+function Coffee({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={3} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <rect x={2} y={2} width={w - 4} height={h - 4} rx={2} fill="none" stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+function Console({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <line x1={w / 3} y1={1.5} x2={w / 3} y2={h - 1.5} stroke={C.edge} strokeWidth={0.3} />
+      <line x1={(2 * w) / 3} y1={1.5} x2={(2 * w) / 3} y2={h - 1.5} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+function SideTable({ w, h }) {
+  return <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 0.5} ry={h / 2 - 0.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />;
+}
+function Stool({ w, h }) {
+  return <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 0.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />;
+}
+
+/* -------- Dining -------- */
+function Dining({ w, h, seats = 4 }) {
+  // chairs on long sides
+  const chairD = 14; // chair diameter
+  const chairsPerLong = Math.max(2, Math.floor(seats / 2));
+  const longChairs = [];
+  for (let i = 0; i < chairsPerLong; i++) {
+    const x = (w * (i + 0.5)) / chairsPerLong;
+    longChairs.push({ x, y: -chairD / 2 + 1 });
+    longChairs.push({ x, y: h + chairD / 2 - 1 });
+  }
+  return (
+    <g>
+      {/* chairs */}
+      {longChairs.map((c, i) => (
+        <rect key={i} x={c.x - chairD / 2} y={c.y - chairD / 2} width={chairD} height={chairD - 2}
+              rx={2.5} fill={C.body} stroke={C.edge} strokeWidth={0.4} />
+      ))}
+      {/* table */}
+      <rect x={0} y={0} width={w} height={h} rx={2} fill={C.body} stroke={C.edge} strokeWidth={0.7} />
+      <rect x={2} y={1.5} width={w - 4} height={h - 3} rx={1} fill="none" stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+function RoundDine({ w, h, seats = 4 }) {
+  const r = Math.min(w, h) / 2;
+  const cx = w / 2, cy = h / 2;
+  const chairR = 6;
+  const chairs = [];
+  for (let i = 0; i < seats; i++) {
+    const a = (i / seats) * Math.PI * 2 - Math.PI / 2;
+    chairs.push({ x: cx + Math.cos(a) * (r + 4), y: cy + Math.sin(a) * (r + 4), a });
+  }
+  return (
+    <g>
+      {chairs.map((c, i) => (
+        <circle key={i} cx={c.x} cy={c.y} r={chairR} fill={C.body} stroke={C.edge} strokeWidth={0.4} />
+      ))}
+      <circle cx={cx} cy={cy} r={r - 1} fill={C.body} stroke={C.edge} strokeWidth={0.7} />
+      <circle cx={cx} cy={cy} r={r - 3} fill="none" stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Desk / Office -------- */
+function Desk({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <rect x={1.5} y={h - 4} width={w / 3} height={2.5} rx={0.5} fill={C.detail} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+function LDesk({ w, h }) {
+  const armW = 24;
+  return (
+    <g>
+      <path d={`M 0 0 H ${w} V ${armW} H ${armW} V ${h} H 0 Z`}
+            fill={C.body} stroke={C.edge} strokeWidth={0.6} strokeLinejoin="round" />
+    </g>
+  );
+}
+function OfficeChair({ w, h }) {
+  return (
+    <g>
+      <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 2 - 0.5} fill={C.body} stroke={C.edge} strokeWidth={0.5} />
+      <path d={`M ${w * 0.15} ${h * 0.35} Q ${w / 2} ${h * 0.1} ${w * 0.85} ${h * 0.35}`}
+            fill="none" stroke={C.edge} strokeWidth={0.7} />
+    </g>
+  );
+}
+
+/* -------- Storage -------- */
+function Dresser({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <line x1={w / 2} y1={1.5} x2={w / 2} y2={h - 1.5} stroke={C.edge} strokeWidth={0.4} />
+      <line x1={1.5} y1={h / 2} x2={w - 1.5} y2={h / 2} stroke={C.edge} strokeWidth={0.4} />
+      {[0.25, 0.75].map((fx, i) => (
+        <g key={i}>
+          <circle cx={w * fx} cy={h * 0.27} r={0.6} fill={C.edge} />
+          <circle cx={w * fx} cy={h * 0.73} r={0.6} fill={C.edge} />
+        </g>
+      ))}
+    </g>
+  );
+}
+function Wardrobe({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.7} />
+      <line x1={w / 2} y1={1.5} x2={w / 2} y2={h - 1.5} stroke={C.edge} strokeWidth={0.5} />
+      <circle cx={w / 2 - 2} cy={h / 2} r={0.7} fill={C.edge} />
+      <circle cx={w / 2 + 2} cy={h / 2} r={0.7} fill={C.edge} />
+    </g>
+  );
+}
+function Bookshelf({ w, h }) {
+  // shelves drawn as vertical book spines
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      {Array.from({ length: Math.floor(w / 2) }).map((_, i) => {
+        const hh = (h - 3) * (0.55 + 0.4 * Math.sin(i * 1.7));
+        const colors = [C.detail, C.wood, '#a87a4c', '#d6b780', '#8a6740'];
+        return (
+          <rect key={i} x={1.2 + i * 2} y={h - 1.5 - hh} width={1.5} height={hh}
+                fill={colors[i % colors.length]} opacity={0.85} />
+        );
+      })}
+    </g>
+  );
+}
+function Nightstand({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <circle cx={w / 2} cy={h * 0.7} r={0.8} fill={C.edge} />
+      <line x1={2} y1={h * 0.4} x2={w - 2} y2={h * 0.4} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/* -------- Media -------- */
+function TvConsole({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={1.5} fill={C.body} stroke={C.edge} strokeWidth={0.6} />
+      <line x1={w / 2} y1={1.5} x2={w / 2} y2={h - 1.5} stroke={C.edge} strokeWidth={0.3} />
+    </g>
+  );
+}
+function TV({ w, h }) {
+  return (
+    <g>
+      <rect x={0} y={0} width={w} height={h} rx={0.5} fill={C.tv} />
+      <rect x={0.4} y={0.4} width={w - 0.8} height={h - 0.8} rx={0.3} fill="#3a2e23" />
+    </g>
+  );
+}
+
+/* -------- Rugs -------- */
+function Rug({ w, h }) {
+  return (
+    <g opacity={0.85}>
+      <rect x={0} y={0} width={w} height={h} rx={1} fill={C.rug} stroke={C.rug2} strokeWidth={0.5} />
+      <rect x={2.5} y={2.5} width={w - 5} height={h - 5} rx={0.8} fill="none" stroke={C.rug2} strokeWidth={0.3} strokeDasharray="2 1.6" />
+      <rect x={5.5} y={5.5} width={w - 11} height={h - 11} rx={0.5} fill="none" stroke={C.rug2} strokeWidth={0.25} />
+    </g>
+  );
+}
+function RugRound({ w, h }) {
+  return (
+    <g opacity={0.85}>
+      <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 0.5} ry={h / 2 - 0.5} fill={C.rug} stroke={C.rug2} strokeWidth={0.5} />
+      <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 4} ry={h / 2 - 4} fill="none" stroke={C.rug2} strokeWidth={0.3} strokeDasharray="2 1.6" />
+    </g>
+  );
+}
+
+/* -------- Plant -------- */
+function Plant({ w, h }) {
+  const cx = w / 2, cy = h / 2;
+  const r = Math.min(w, h) / 2;
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r - 0.5} fill={C.plant} stroke={C.plantDark} strokeWidth={0.4} />
+      <circle cx={cx - r * 0.3} cy={cy - r * 0.2} r={r * 0.35} fill={C.plantDark} opacity={0.5} />
+      <circle cx={cx + r * 0.25} cy={cy + r * 0.25} r={r * 0.3} fill={C.plantDark} opacity={0.4} />
+      <circle cx={cx} cy={cy} r={r * 0.18} fill={C.pot} />
+    </g>
+  );
+}
+
+/* -------- Play mat -------- */
+function PlayMat({ w, h }) {
+  return (
+    <g opacity={0.9}>
+      <rect x={0} y={0} width={w} height={h} rx={6} fill="#f4e3c1" stroke={C.edgeLight} strokeWidth={0.4} />
+      <rect x={2} y={2} width={(w - 4) / 2 - 1} height={(h - 4) / 2 - 1} rx={3} fill="#e8c79c" opacity={0.7} />
+      <rect x={w / 2 + 1} y={2} width={(w - 4) / 2 - 1} height={(h - 4) / 2 - 1} rx={3} fill="#dfb992" opacity={0.55} />
+      <rect x={2} y={h / 2 + 1} width={(w - 4) / 2 - 1} height={(h - 4) / 2 - 1} rx={3} fill="#dfb992" opacity={0.55} />
+      <rect x={w / 2 + 1} y={h / 2 + 1} width={(w - 4) / 2 - 1} height={(h - 4) / 2 - 1} rx={3} fill="#e8c79c" opacity={0.7} />
+    </g>
+  );
+}
+
+/* Master dispatcher */
+function FurnitureShape({ item }) {
+  const { kind, w, h, seats } = item;
+  switch (kind) {
+    case 'bed': return <Bed w={w} h={h} />;
+    case 'foldbed': return <FoldBed w={w} h={h} />;
+    case 'crib': return <Crib w={w} h={h} />;
+    case 'changing': return <Changing w={w} h={h} />;
+    case 'sofa': return <Sofa w={w} h={h} seats={seats} />;
+    case 'sectional': return <Sectional w={w} h={h} />;
+    case 'armchair': return <Armchair w={w} h={h} />;
+    case 'ottoman': return <Ottoman w={w} h={h} />;
+    case 'coffee': return <Coffee w={w} h={h} />;
+    case 'sidetable': return <SideTable w={w} h={h} />;
+    case 'console': return <Console w={w} h={h} />;
+    case 'stool': return <Stool w={w} h={h} />;
+    case 'dining': return <Dining w={w} h={h} seats={seats} />;
+    case 'roundDine': return <RoundDine w={w} h={h} seats={seats} />;
+    case 'desk': return <Desk w={w} h={h} />;
+    case 'lDesk': return <LDesk w={w} h={h} />;
+    case 'officeChair': return <OfficeChair w={w} h={h} />;
+    case 'dresser': return <Dresser w={w} h={h} />;
+    case 'wardrobe': return <Wardrobe w={w} h={h} />;
+    case 'bookshelf': return <Bookshelf w={w} h={h} />;
+    case 'nightstand': return <Nightstand w={w} h={h} />;
+    case 'tvConsole': return <TvConsole w={w} h={h} />;
+    case 'tv': return <TV w={w} h={h} />;
+    case 'rug': return <Rug w={w} h={h} />;
+    case 'rugRound': return <RugRound w={w} h={h} />;
+    case 'plant': return <Plant w={w} h={h} />;
+    case 'playmat': return <PlayMat w={w} h={h} />;
+    default: return <rect x={0} y={0} width={w} height={h} fill={C.body} stroke={C.edge} />;
+  }
+}
+
+window.FurnitureShape = FurnitureShape;
+
+
+/* ============ APP ============ */
+// Home Layout Planner — works with any uploaded floor plan image.
+// Furniture catalog uses real-world inches. User calibrates the image's
+// pixels-per-inch by clicking two points along a known distance.
+
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+/* ---------- helpers ---------- */
+const uid = () => 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+const formatLen = (inches) => {
+  if (!isFinite(inches)) return '—';
+  const sign = inches < 0 ? '-' : '';
+  const abs = Math.abs(inches);
+  const ft = Math.floor(abs / 12);
+  const inch = Math.round(abs % 12);
+  if (ft === 0) return `${sign}${inch}"`;
+  if (inch === 0) return `${sign}${ft}'`;
+  return `${sign}${ft}'${inch}"`;
+};
+
+const fmtSize = (w, h) => `${formatLen(w)} × ${formatLen(h)}`;
+
+const DEFAULT_PX_PER_INCH = 4; // gets overridden once user calibrates
+
+/* ---------- Catalog sidebar ---------- */
+function CatalogItem({ item, onDragStart, disabled }) {
+  const previewMax = 50;
+  const scale = Math.min(previewMax / item.w, previewMax / item.h);
+  const pw = item.w * scale;
+  const ph = item.h * scale;
+
+  return (
+    <div
+      className={`cat-item ${disabled ? 'disabled' : ''}`}
+      onMouseDown={(e) => !disabled && onDragStart(item, e)}
+      title={disabled ? 'Upload a floor plan first' : ''}
+    >
+      <div className="cat-preview">
+        <svg width={pw} height={ph} viewBox={`-1 -1 ${item.w + 2} ${item.h + 2}`} className="f-shadow">
+          <FurnitureShape item={item} />
+        </svg>
+      </div>
+      <div className="cat-label">{item.label}</div>
+      <div className="cat-dim">{fmtSize(item.w, item.h)}</div>
+    </div>
+  );
+}
+
+function Sidebar({ onDragStart, disabled }) {
+  const grouped = useMemo(() => {
+    const map = {};
+    CATALOG.forEach(item => {
+      if (!map[item.cat]) map[item.cat] = [];
+      map[item.cat].push(item);
+    });
+    return map;
+  }, []);
+
+  return (
+    <aside className="sidebar">
+      <div className="brand">
+        <h1 className="title">Home Layout Planner</h1>
+        <div className="sub">{disabled ? 'UPLOAD A PLAN TO BEGIN' : 'DRAG ONTO THE PLAN →'}</div>
+      </div>
+      <div className="catalog">
+        {CAT_ORDER.map(cat => grouped[cat] ? (
+          <div key={cat} className="cat-section">
+            <div className="cat-title">{cat}</div>
+            <div className="cat-grid">
+              {grouped[cat].map(item => (
+                <CatalogItem
+                  key={item.id}
+                  item={item}
+                  onDragStart={onDragStart}
+                  disabled={disabled}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null)}
+      </div>
+    </aside>
+  );
+}
+
+/* ---------- Upload zone ---------- */
+function UploadZone({ onFile }) {
+  const inputRef = useRef(null);
+  const [dragover, setDragover] = useState(false);
+
+  const handleFile = (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please choose an image file (PNG, JPG, etc.)');
+      return;
+    }
+    onFile(file);
+  };
+
+  return (
+    <div
+      className={`upload-zone ${dragover ? 'dragover' : ''}`}
+      onClick={() => inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); setDragover(true); }}
+      onDragLeave={() => setDragover(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragover(false);
+        const f = e.dataTransfer.files?.[0];
+        if (f) handleFile(f);
+      }}
+    >
+      <div className="upload-icon">
+        <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3v12m0-12 -4 4m4 -4 4 4 M3 17v2a2 2 0 002 2h14a2 2 0 002 -2v-2"
+            stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <div>
+        <div className="upload-title">Upload your floor plan</div>
+        <div className="upload-sub">
+          Drop an image here, or click to browse. We'll let you set the scale and start placing furniture.
+        </div>
+      </div>
+      <div className="upload-cta">Choose image</div>
+      <div className="upload-formats">PNG · JPG · WEBP · SVG</div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="file-hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
+    </div>
+  );
+}
+
+/* ---------- Placed item ---------- */
+function Placed({ item, isSelected, onMouseDown, onRotateMouseDown, onResizeMouseDown, onDelete, pxPerInch }) {
+  const w_px = item.w * pxPerInch;
+  const h_px = item.h * pxPerInch;
+  return (
+    <g transform={`translate(${item.cx} ${item.cy}) rotate(${item.rot})`}>
+      <g transform={`translate(${-w_px / 2} ${-h_px / 2})`} onMouseDown={onMouseDown} className="placed f-shadow">
+        <g transform={`scale(${pxPerInch})`}>
+          <FurnitureShape item={item} />
+        </g>
+        <rect x={0} y={0} width={w_px} height={h_px} fill="transparent" />
+      </g>
+
+      {isSelected && (
+        <g style={{ pointerEvents: 'auto' }}>
+          <rect
+            x={-w_px / 2 - 2}
+            y={-h_px / 2 - 2}
+            width={w_px + 4}
+            height={h_px + 4}
+            fill="none"
+            stroke="#c25a3a"
+            strokeWidth={1.6}
+            strokeDasharray="5 3.5"
+            pointerEvents="none"
+          />
+          <line
+            x1={0} y1={-h_px / 2 - 2}
+            x2={0} y2={-h_px / 2 - 24}
+            stroke="#c25a3a" strokeWidth={1.6}
+            pointerEvents="none"
+          />
+          <circle
+            cx={0} cy={-h_px / 2 - 28}
+            r={7}
+            fill="#fff" stroke="#c25a3a" strokeWidth={2}
+            className="rot-handle"
+            onMouseDown={onRotateMouseDown}
+          />
+          <path
+            d={`M -3 ${-h_px / 2 - 28} a 3 3 0 1 1 6 0`}
+            fill="none" stroke="#c25a3a" strokeWidth={1.4}
+            pointerEvents="none"
+          />
+          <rect
+            x={w_px / 2 - 5}
+            y={h_px / 2 - 5}
+            width={10} height={10}
+            fill="#fff" stroke="#c25a3a" strokeWidth={2}
+            className="resize-handle"
+            onMouseDown={onResizeMouseDown}
+          />
+          <g transform={`translate(${w_px / 2 + 14} ${-h_px / 2 - 14})`} onMouseDown={onDelete} style={{ cursor: 'pointer' }}>
+            <circle r={8} fill="#c25a3a" />
+            <line x1={-3.5} y1={-3.5} x2={3.5} y2={3.5} stroke="#fff" strokeWidth={1.8} />
+            <line x1={-3.5} y1={3.5} x2={3.5} y2={-3.5} stroke="#fff" strokeWidth={1.8} />
+          </g>
+        </g>
+      )}
+    </g>
+  );
+}
+
+/* ---------- Scale modal ---------- */
+function ScaleModal({ pxDistance, onSubmit, onCancel }) {
+  const [unit, setUnit] = useState('ft');
+  const [val, setVal] = useState('');
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }, []);
+
+  const submit = () => {
+    const n = parseFloat(val);
+    if (!isFinite(n) || n <= 0) {
+      alert('Please enter a positive number');
+      return;
+    }
+    const inches = unit === 'ft' ? n * 12 : n;
+    const pxPerInch = pxDistance / inches;
+    onSubmit(pxPerInch);
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>Set scale</h3>
+        <p>How long is the line you just drew, in the real world?</p>
+        <div className="row">
+          <input
+            ref={inputRef}
+            type="number"
+            step="any"
+            placeholder={unit === 'ft' ? 'e.g. 13' : 'e.g. 156'}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && submit()}
+          />
+          <div className="unit-toggle">
+            <button className={unit === 'ft' ? 'active' : ''} onClick={() => setUnit('ft')}>feet</button>
+            <button className={unit === 'in' ? 'active' : ''} onClick={() => setUnit('in')}>inches</button>
+          </div>
+        </div>
+        <div className="actions">
+          <button className="btn" onClick={onCancel}>Cancel</button>
+          <button className="btn primary" onClick={submit}>Set scale</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- App ---------- */
+function App() {
+  // Plan image
+  const [planUrl, setPlanUrl] = useState(null);
+  const [planSize, setPlanSize] = useState(null); // {w, h} in image pixels
+  const [pxPerInch, setPxPerInch] = useState(DEFAULT_PX_PER_INCH);
+
+  // Calibration
+  const [calMode, setCalMode] = useState(null); // null | 'awaiting-first' | 'awaiting-second' | 'modal'
+  const [calStart, setCalStart] = useState(null);
+  const [calEnd, setCalEnd] = useState(null);
+
+  // Ruler / measurements
+  const [measureMode, setMeasureMode] = useState(false);
+  const [measureStart, setMeasureStart] = useState(null); // pending first point
+  const [measureCursor, setMeasureCursor] = useState(null); // live cursor for preview
+  const [measurements, setMeasurements] = useState([]); // [{ id, start:{x,y}, end:{x,y} }]
+
+  // Placed furniture & selection
+  const [placed, setPlaced] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [drag, setDrag] = useState(null);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+
+  // Zoom & pan
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [spaceHeld, setSpaceHeld] = useState(false);
+  const wrapRef = useRef(null);
+
+  const svgRef = useRef(null);
+
+  const screenToSvg = useCallback((sx, sy) => {
+    const svg = svgRef.current;
+    if (!svg || !planSize) return { x: 0, y: 0 };
+    const r = svg.getBoundingClientRect();
+    return {
+      x: ((sx - r.left) / r.width) * planSize.w,
+      y: ((sy - r.top) / r.height) * planSize.h,
+    };
+  }, [planSize]);
+
+  const svgToScreen = useCallback((x, y) => {
+    const svg = svgRef.current;
+    if (!svg || !planSize) return { x: 0, y: 0 };
+    const r = svg.getBoundingClientRect();
+    return {
+      x: r.left + (x / planSize.w) * r.width,
+      y: r.top + (y / planSize.h) * r.height,
+    };
+  }, [planSize]);
+
+  /* -- Handle uploaded image -- */
+  const handleFile = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = reader.result;
+      const im = new Image();
+      im.onload = () => {
+        setPlanUrl(url);
+        setPlanSize({ w: im.naturalWidth, h: im.naturalHeight });
+        // Initial scale guess: assume image represents ~30 ft wide
+        const guess = im.naturalWidth / (30 * 12);
+        setPxPerInch(guess);
+        setPlaced([]);
+        setSelected(null);
+        // Prompt user to calibrate after a beat
+        setTimeout(() => setCalMode('awaiting-first'), 250);
+      };
+      im.src = url;
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  /* -- Drop handler on the canvas-wrap for re-upload via drop -- */
+  // (kept simple: only the upload zone accepts drops)
+
+  /* -- Mouse listeners for drag operations -- */
+  useEffect(() => {
+    if (!drag) return;
+    const onMove = (e) => {
+      setMouse({ x: e.clientX, y: e.clientY });
+
+      if (drag.kind === 'pan') {
+        setPan({
+          x: drag.startPan.x + (e.clientX - drag.startMouse.x),
+          y: drag.startPan.y + (e.clientY - drag.startMouse.y),
+        });
+        return;
+      }
+
+      const pt = screenToSvg(e.clientX, e.clientY);
+
+      if (drag.kind === 'move') {
+        setPlaced(items => items.map(it =>
+          it.uid === drag.uid
+            ? { ...it, cx: pt.x - drag.offset.x, cy: pt.y - drag.offset.y }
+            : it
+        ));
+      } else if (drag.kind === 'rotate') {
+        const dx = pt.x - drag.center.x;
+        const dy = pt.y - drag.center.y;
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+        let newRot = drag.startRot + (angle - drag.startAngle);
+        if (e.shiftKey) newRot = Math.round(newRot / 15) * 15;
+        newRot = ((newRot + 540) % 360) - 180;
+        setPlaced(items => items.map(it =>
+          it.uid === drag.uid ? { ...it, rot: newRot } : it
+        ));
+      } else if (drag.kind === 'resize') {
+        setPlaced(items => items.map(it => {
+          if (it.uid !== drag.uid) return it;
+          const dx = pt.x - it.cx;
+          const dy = pt.y - it.cy;
+          const rad = (-it.rot * Math.PI) / 180;
+          const lx = dx * Math.cos(rad) - dy * Math.sin(rad);
+          const ly = dx * Math.sin(rad) + dy * Math.cos(rad);
+          // In px, then convert to inches
+          let newW_in = Math.max(4, (lx * 2) / pxPerInch);
+          let newH_in = Math.max(4, (ly * 2) / pxPerInch);
+          if (e.shiftKey) {
+            const aspect = drag.startW / drag.startH;
+            const targetW = Math.max(newW_in, newH_in * aspect);
+            newW_in = targetW;
+            newH_in = targetW / aspect;
+          }
+          return { ...it, w: newW_in, h: newH_in };
+        }));
+      }
+    };
+
+    const onUp = (e) => {
+      if (drag.kind === 'palette') {
+        const pt = screenToSvg(e.clientX, e.clientY);
+        if (planSize && pt.x >= 0 && pt.x <= planSize.w && pt.y >= 0 && pt.y <= planSize.h) {
+          const newItem = {
+            uid: uid(),
+            catalogId: drag.item.id,
+            cx: pt.x,
+            cy: pt.y,
+            w: drag.item.w,
+            h: drag.item.h,
+            rot: 0,
+            kind: drag.item.kind,
+            seats: drag.item.seats,
+            label: drag.item.label,
+          };
+          setPlaced(items => [...items, newItem]);
+          setSelected(newItem.uid);
+        }
+      }
+      setDrag(null);
+    };
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [drag, screenToSvg, planSize, pxPerInch]);
+
+  /* -- Mouse tracking for palette ghost -- */
+  useEffect(() => {
+    const onMove = (e) => setMouse({ x: e.clientX, y: e.clientY });
+    document.addEventListener('mousemove', onMove);
+    return () => document.removeEventListener('mousemove', onMove);
+  }, []);
+
+  /* -- Keyboard shortcuts -- */
+  useEffect(() => {
+    const onKey = (e) => {
+      if (calMode) {
+        if (e.key === 'Escape') {
+          setCalMode(null);
+          setCalStart(null);
+          setCalEnd(null);
+        }
+        return;
+      }
+      if (measureMode) {
+        if (e.key === 'Escape') {
+          setMeasureMode(false);
+          setMeasureStart(null);
+          setMeasureCursor(null);
+        }
+        return;
+      }
+      if (!selected) return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        setPlaced(items => items.filter(it => it.uid !== selected));
+        setSelected(null);
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        setPlaced(items => items.map(it =>
+          it.uid === selected ? { ...it, rot: ((it.rot + 90 + 540) % 360) - 180 } : it
+        ));
+      } else if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        const src = placed.find(p => p.uid === selected);
+        if (src) {
+          const dupId = uid();
+          const dup = { ...src, uid: dupId, cx: src.cx + 16, cy: src.cy + 16 };
+          setPlaced(items => [...items, dup]);
+          setSelected(dupId);
+        }
+      } else if (e.key === 'Escape') {
+        setSelected(null);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selected, placed, calMode, measureMode]);
+
+  /* -- Save / Load -- */
+  const STORAGE_KEY = 'home-layout-planner:v1';
+  const [savedAt, setSavedAt] = useState(null);
+  const [saveError, setSaveError] = useState(null);
+  const loadedRef = useRef(false);
+  const loadInputRef = useRef(null);
+
+  // Auto-load on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) { loadedRef.current = true; return; }
+      const data = JSON.parse(raw);
+      if (data.planUrl && data.planSize) {
+        setPlanUrl(data.planUrl);
+        setPlanSize(data.planSize);
+        setPxPerInch(data.pxPerInch || DEFAULT_PX_PER_INCH);
+        setPlaced(Array.isArray(data.placed) ? data.placed : []);
+        setSavedAt(data.savedAt || Date.now());
+      }
+    } catch (e) {
+      console.warn('Could not restore saved layout:', e);
+    } finally {
+      loadedRef.current = true;
+    }
+  }, []);
+
+  // Auto-save when meaningful state changes (debounced)
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    if (!planUrl || !planSize) return;
+    const t = setTimeout(() => {
+      try {
+        const now = Date.now();
+        const data = { planUrl, planSize, pxPerInch, placed, savedAt: now };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        setSavedAt(now);
+        setSaveError(null);
+      } catch (e) {
+        setSaveError(e.name === 'QuotaExceededError'
+          ? 'Plan too large to auto-save — use "Export" to save a file.'
+          : 'Could not auto-save.');
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [planUrl, planSize, pxPerInch, placed]);
+
+  const exportPlan = useCallback(() => {
+    if (!planUrl || !planSize) return;
+    const data = { planUrl, planSize, pxPerInch, placed, savedAt: Date.now(), version: 1 };
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    a.href = url;
+    a.download = `floor-plan-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [planUrl, planSize, pxPerInch, placed]);
+
+  const importPlan = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.planUrl || !data.planSize) throw new Error('Missing plan data');
+        const proceed = placed.length === 0 || confirm('Loading will replace your current layout. Continue?');
+        if (!proceed) return;
+        setPlanUrl(data.planUrl);
+        setPlanSize(data.planSize);
+        setPxPerInch(data.pxPerInch || DEFAULT_PX_PER_INCH);
+        setPlaced(Array.isArray(data.placed) ? data.placed : []);
+        setSelected(null);
+        setSavedAt(data.savedAt || Date.now());
+        resetView();
+      } catch (e) {
+        alert('Could not load file: ' + e.message);
+      }
+    };
+    reader.readAsText(file);
+  }, [placed.length]);
+
+  /* -- Zoom & pan handlers -- */
+  const clampZoom = (z) => Math.max(0.25, Math.min(8, z));
+
+  // Zoom focal-point: keep the point under the cursor (screen-coords relative
+  // to canvas-wrap center, since transform-origin is center) in place.
+  const zoomAt = useCallback((clientX, clientY, factor) => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const cx = clientX - r.left - r.width / 2;
+    const cy = clientY - r.top - r.height / 2;
+    setZoom(prevZoom => {
+      const newZoom = clampZoom(prevZoom * factor);
+      const ratio = newZoom / prevZoom;
+      setPan(prevPan => ({
+        x: cx - (cx - prevPan.x) * ratio,
+        y: cy - (cy - prevPan.y) * ratio,
+      }));
+      return newZoom;
+    });
+  }, []);
+
+  const resetView = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  // Wheel: ctrl/cmd or trackpad pinch (pinch sends ctrlKey) → zoom.
+  // Two-finger trackpad scroll → pan.
+  useEffect(() => {
+    if (!planUrl) return;
+    const el = wrapRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const factor = Math.exp(-e.deltaY * 0.012);
+        zoomAt(e.clientX, e.clientY, factor);
+      } else if (e.shiftKey === false && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
+        // Pan with two-finger scroll
+        e.preventDefault();
+        setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [planUrl, zoomAt]);
+
+  // Spacebar → pan mode
+  useEffect(() => {
+    const down = (e) => {
+      if (e.code === 'Space' && !spaceHeld) {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        setSpaceHeld(true);
+      }
+    };
+    const up = (e) => {
+      if (e.code === 'Space') setSpaceHeld(false);
+    };
+    document.addEventListener('keydown', down);
+    document.addEventListener('keyup', up);
+    return () => {
+      document.removeEventListener('keydown', down);
+      document.removeEventListener('keyup', up);
+    };
+  }, [spaceHeld]);
+
+  // Zoom keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (!planUrl) return;
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        const el = wrapRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.2);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        const el = wrapRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.2);
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        resetView();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [planUrl, zoomAt, resetView]);
+
+  /* -- Calibration handlers -- */
+  const onCanvasClickForCal = (e) => {
+    if (!calMode || calMode === 'modal') return;
+    const pt = screenToSvg(e.clientX, e.clientY);
+    if (calMode === 'awaiting-first') {
+      setCalStart(pt);
+      setCalEnd(pt);
+      setCalMode('awaiting-second');
+    } else if (calMode === 'awaiting-second') {
+      setCalEnd(pt);
+      setCalMode('modal');
+    }
+  };
+
+  /* -- Ruler handlers -- */
+  const snapAxis = (start, end, shift) => {
+    if (!shift) return end;
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    return Math.abs(dx) > Math.abs(dy)
+      ? { x: end.x, y: start.y }
+      : { x: start.x, y: end.y };
+  };
+
+  const onCanvasClickForMeasure = (e) => {
+    if (!measureMode) return;
+    const pt = screenToSvg(e.clientX, e.clientY);
+    if (!measureStart) {
+      setMeasureStart(pt);
+      setMeasureCursor(pt);
+    } else {
+      const end = snapAxis(measureStart, pt, e.shiftKey);
+      setMeasurements(ms => [...ms, { id: uid(), start: measureStart, end }]);
+      setMeasureStart(null);
+      setMeasureCursor(null);
+    }
+  };
+
+  // Live preview while waiting for second point
+  useEffect(() => {
+    if (!measureMode || !measureStart) return;
+    const onMove = (e) => {
+      const pt = screenToSvg(e.clientX, e.clientY);
+      setMeasureCursor(snapAxis(measureStart, pt, e.shiftKey));
+    };
+    document.addEventListener('mousemove', onMove);
+    return () => document.removeEventListener('mousemove', onMove);
+  }, [measureMode, measureStart, screenToSvg]);
+
+  const startMeasure = () => {
+    if (calMode) return;
+    setSelected(null);
+    setMeasureStart(null);
+    setMeasureCursor(null);
+    setMeasureMode(m => !m);
+  };
+
+  const removeMeasurement = (id) => {
+    setMeasurements(ms => ms.filter(m => m.id !== id));
+  };
+
+  const clearMeasurements = () => {
+    setMeasurements([]);
+    setMeasureStart(null);
+    setMeasureCursor(null);
+  };
+
+  useEffect(() => {
+    if (calMode !== 'awaiting-second') return;
+    const onMove = (e) => {
+      const pt = screenToSvg(e.clientX, e.clientY);
+      setCalEnd(pt);
+    };
+    document.addEventListener('mousemove', onMove);
+    return () => document.removeEventListener('mousemove', onMove);
+  }, [calMode, screenToSvg]);
+
+  const calPxDistance = useMemo(() => {
+    if (!calStart || !calEnd) return 0;
+    const dx = calEnd.x - calStart.x;
+    const dy = calEnd.y - calStart.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }, [calStart, calEnd]);
+
+  const handleScaleSubmit = (newPxPerInch) => {
+    // Adjust existing placed items so they keep their real-world size
+    // (their cx/cy stay in image px, but w/h are stored in inches → recomputed)
+    setPxPerInch(newPxPerInch);
+    setCalMode(null);
+    setCalStart(null);
+    setCalEnd(null);
+  };
+
+  /* -- Palette drag start -- */
+  const startPaletteDrag = (item, e) => {
+    if (!planUrl) return;
+    e.preventDefault();
+    setMouse({ x: e.clientX, y: e.clientY });
+    setDrag({ kind: 'palette', item });
+  };
+
+  const startMove = (uidV, e) => {
+    if (calMode) return;
+    e.stopPropagation();
+    setSelected(uidV);
+    const item = placed.find(p => p.uid === uidV);
+    if (!item) return;
+    const pt = screenToSvg(e.clientX, e.clientY);
+    setDrag({
+      kind: 'move',
+      uid: uidV,
+      offset: { x: pt.x - item.cx, y: pt.y - item.cy },
+    });
+  };
+
+  const startRotate = (uidV, e) => {
+    e.stopPropagation();
+    const item = placed.find(p => p.uid === uidV);
+    if (!item) return;
+    const pt = screenToSvg(e.clientX, e.clientY);
+    const startAngle = (Math.atan2(pt.y - item.cy, pt.x - item.cx) * 180) / Math.PI;
+    setDrag({
+      kind: 'rotate',
+      uid: uidV,
+      center: { x: item.cx, y: item.cy },
+      startAngle,
+      startRot: item.rot,
+    });
+  };
+
+  const startResize = (uidV, e) => {
+    e.stopPropagation();
+    const item = placed.find(p => p.uid === uidV);
+    if (!item) return;
+    setDrag({ kind: 'resize', uid: uidV, startW: item.w, startH: item.h });
+  };
+
+  const handleDelete = (uidV, e) => {
+    e.stopPropagation();
+    setPlaced(items => items.filter(it => it.uid !== uidV));
+    setSelected(null);
+  };
+
+  const clearAll = () => {
+    if (placed.length === 0) return;
+    if (confirm(`Remove all ${placed.length} pieces of furniture?`)) {
+      setPlaced([]);
+      setSelected(null);
+    }
+  };
+
+  const replacePlan = () => {
+    const ok = placed.length === 0 || confirm('Replacing the plan will remove your current layout. Continue?');
+    if (!ok) return;
+    setPlanUrl(null);
+    setPlanSize(null);
+    setPlaced([]);
+    setSelected(null);
+    resetView();
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    setSavedAt(null);
+  };
+
+  const startCalibrate = () => {
+    setCalMode('awaiting-first');
+    setCalStart(null);
+    setCalEnd(null);
+    setSelected(null);
+  };
+
+  /* -- Sort placed: rugs/playmats to back, selected on top -- */
+  const sortedPlaced = useMemo(() => {
+    const arr = [...placed];
+    const isRug = (k) => k === 'rug' || k === 'rugRound' || k === 'playmat';
+    arr.sort((a, b) => {
+      if (isRug(a.kind) && !isRug(b.kind)) return -1;
+      if (!isRug(a.kind) && isRug(b.kind)) return 1;
+      if (a.uid === selected) return 1;
+      if (b.uid === selected) return -1;
+      return 0;
+    });
+    return arr;
+  }, [placed, selected]);
+
+  /* -- Dimension tag while dragging -- */
+  const dimTag = useMemo(() => {
+    if (!drag || drag.kind === 'palette') return null;
+    const item = placed.find(p => p.uid === drag.uid);
+    if (!item) return null;
+    let txt;
+    if (drag.kind === 'rotate') {
+      txt = `${Math.round(item.rot)}°`;
+    } else {
+      txt = fmtSize(item.w, item.h);
+    }
+    const scr = svgToScreen(item.cx, item.cy - (item.h * pxPerInch) / 2);
+    return { txt, x: scr.x, y: scr.y - 18 };
+  }, [drag, placed, svgToScreen, pxPerInch]);
+
+  /* -- Calibration distance tag -- */
+  const calTag = useMemo(() => {
+    if (!calMode || !calStart || !calEnd) return null;
+    if (calMode === 'awaiting-first') return null;
+    const px = calPxDistance;
+    const inches = px / pxPerInch;
+    const midX = (calStart.x + calEnd.x) / 2;
+    const midY = (calStart.y + calEnd.y) / 2;
+    const scr = svgToScreen(midX, midY);
+    return {
+      txt: calMode === 'awaiting-second' ? `${Math.round(px)} px  · ~${formatLen(inches)}` : '',
+      x: scr.x,
+      y: scr.y - 20,
+    };
+  }, [calMode, calStart, calEnd, calPxDistance, pxPerInch, svgToScreen]);
+
+  /* -- Ghost while dragging from palette -- */
+  const ghost = useMemo(() => {
+    if (drag?.kind !== 'palette') return null;
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r || !planSize) return null;
+    const scale = r.width / planSize.w; // screen-px per image-px
+    return {
+      item: drag.item,
+      w: drag.item.w * pxPerInch * scale,
+      h: drag.item.h * pxPerInch * scale,
+      x: mouse.x,
+      y: mouse.y,
+    };
+  }, [drag, mouse, planSize, pxPerInch]);
+
+  /* -- SVG sizing -- */
+  const svgStyle = useMemo(() => {
+    if (!planSize) return {};
+    const aspect = planSize.w / planSize.h;
+    // Fit within available area
+    return {
+      maxWidth: 'min(calc(100vw - 360px - 48px), calc((100vh - 48px) * ' + aspect + '))',
+      maxHeight: 'min(calc(100vh - 48px), calc((100vw - 360px - 48px) / ' + aspect + '))',
+      width: '100%',
+      height: 'auto',
+    };
+  }, [planSize]);
+
+  return (
+    <div className="app">
+      <Sidebar onDragStart={startPaletteDrag} disabled={!planUrl} />
+
+      <div
+        ref={wrapRef}
+        className={`canvas-wrap ${calMode && calMode !== 'modal' ? 'calibrating' : ''} ${measureMode ? 'measuring' : ''} ${drag?.kind === 'pan' ? 'panning' : (spaceHeld && planUrl ? 'pan-ready' : '')}`}
+        onMouseDown={(e) => {
+          // Pan: space+drag or middle mouse
+          if (planUrl && (spaceHeld || e.button === 1) && !calMode && !measureMode) {
+            e.preventDefault();
+            setDrag({ kind: 'pan', startMouse: { x: e.clientX, y: e.clientY }, startPan: { ...pan } });
+            return;
+          }
+          if (calMode && calMode !== 'modal') {
+            onCanvasClickForCal(e);
+          } else if (measureMode) {
+            onCanvasClickForMeasure(e);
+          } else {
+            setSelected(null);
+          }
+        }}
+      >
+        {!planUrl && (
+          <div className="canvas-scroll">
+            <UploadZone onFile={handleFile} />
+          </div>
+        )}
+
+        {planUrl && planSize && (
+          <div className="canvas-scroll">
+            <div
+              className="plan-stage"
+              style={{
+                ...svgStyle,
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+              }}
+            >
+              <svg
+                ref={svgRef}
+                className="plan-svg"
+                viewBox={`0 0 ${planSize.w} ${planSize.h}`}
+                preserveAspectRatio="xMidYMid meet"
+                style={{ width: '100%', height: 'auto' }}
+              >
+                <image
+                  href={planUrl}
+                  x={0} y={0}
+                  width={planSize.w}
+                  height={planSize.h}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+
+                {/* Placed furniture */}
+                {sortedPlaced.map(item => (
+                  <Placed
+                    key={item.uid}
+                    item={item}
+                    isSelected={selected === item.uid}
+                    onMouseDown={(e) => startMove(item.uid, e)}
+                    onRotateMouseDown={(e) => startRotate(item.uid, e)}
+                    onResizeMouseDown={(e) => startResize(item.uid, e)}
+                    onDelete={(e) => handleDelete(item.uid, e)}
+                    pxPerInch={pxPerInch}
+                  />
+                ))}
+
+                {/* Measurement lines */}
+                {measurements.map(m => (
+                  <g key={m.id} pointerEvents="none">
+                    <line
+                      x1={m.start.x} y1={m.start.y}
+                      x2={m.end.x} y2={m.end.y}
+                      className="measure-line"
+                    />
+                    <circle cx={m.start.x} cy={m.start.y} r={4} className="measure-dot" />
+                    <circle cx={m.end.x} cy={m.end.y} r={4} className="measure-dot" />
+                  </g>
+                ))}
+
+                {/* Measurement preview while ruler is active */}
+                {measureMode && measureStart && measureCursor && (
+                  <g pointerEvents="none">
+                    <line
+                      x1={measureStart.x} y1={measureStart.y}
+                      x2={measureCursor.x} y2={measureCursor.y}
+                      className="measure-line preview"
+                    />
+                    <circle cx={measureStart.x} cy={measureStart.y} r={4} className="measure-dot" />
+                  </g>
+                )}
+
+                {/* Calibration line */}
+                {calMode && calStart && calEnd && (
+                  <g pointerEvents="none">
+                    <line
+                      x1={calStart.x} y1={calStart.y}
+                      x2={calEnd.x} y2={calEnd.y}
+                      className="cal-line"
+                    />
+                    <circle cx={calStart.x} cy={calStart.y} r={5} className="cal-dot" />
+                    <circle cx={calEnd.x} cy={calEnd.y} r={5} className="cal-dot" />
+                  </g>
+                )}
+              </svg>
+            </div>
+          </div>
+        )}
+
+        {/* Toolbar */}
+        {planUrl && (
+          <div className="toolbar">
+            <button className="tb-btn" onClick={startCalibrate}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M3 12h18 M3 8v8 M21 8v8 M8 10v4 M13 10v4 M18 10v4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              </svg>
+              {pxPerInch === DEFAULT_PX_PER_INCH ? 'Set scale' : 'Recalibrate'}
+            </button>
+            <button
+              className={`tb-btn ${measureMode ? 'active' : ''}`}
+              onClick={startMeasure}
+              disabled={!!calMode}
+              title="Measure distances on the plan (Esc to exit)"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M2 14l8-8 12 12-8 8z M6 10l2 2 M9 7l2 2 M12 4l2 2 M3 17l2 2 M6 14l2 2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {measureMode ? 'Done measuring' : 'Ruler'}
+            </button>
+            {measurements.length > 0 && (
+              <button className="tb-btn" onClick={clearMeasurements} title="Remove all measurements">
+                Clear ruler ({measurements.length})
+              </button>
+            )}
+            <button className="tb-btn" onClick={clearAll} disabled={placed.length === 0}>
+              Clear furniture
+            </button>
+            <button className="tb-btn" onClick={replacePlan}>
+              Replace plan
+            </button>
+            <div className="tb-sep"></div>
+            <button className="tb-btn" onClick={exportPlan} title="Download this plan as a .json file">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 4v11 M7 11l5 5 5-5 M5 20h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Export
+            </button>
+            <button className="tb-btn" onClick={() => loadInputRef.current?.click()} title="Load a previously saved .json plan">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 20V9 M7 13l5-5 5 5 M5 4h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Load
+            </button>
+            <input
+              ref={loadInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) importPlan(f);
+                e.target.value = '';
+              }}
+            />
+            <div className="save-status" title={saveError || (savedAt ? 'Auto-saved to this browser' : '')}>
+              {saveError ? (
+                <><span className="save-dot err"></span>{saveError}</>
+              ) : savedAt ? (
+                <><span className="save-dot ok"></span>Saved</>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {/* Zoom chip */}
+        {planUrl && (
+          <div className="zoom-chip">
+            <button
+              onClick={() => {
+                const el = wrapRef.current;
+                if (!el) return;
+                const r = el.getBoundingClientRect();
+                zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.25);
+              }}
+              title="Zoom out (⌘−)"
+            >−</button>
+            <div
+              className="zoom-level"
+              onClick={resetView}
+              title="Reset to 100% (⌘0)"
+            >
+              {Math.round(zoom * 100)}%
+            </div>
+            <button
+              onClick={() => {
+                const el = wrapRef.current;
+                if (!el) return;
+                const r = el.getBoundingClientRect();
+                zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.25);
+              }}
+              title="Zoom in (⌘+)"
+            >+</button>
+            <div className="zoom-sep"></div>
+            <button className="zoom-fit" onClick={resetView} title="Fit to view">Fit</button>
+          </div>
+        )}
+
+        {/* Calibration banner */}
+        {calMode && calMode !== 'modal' && (
+          <div className="cal-banner">
+            <span>
+              {calMode === 'awaiting-first' && <>Step 1: <b>Click one end</b> of a known distance on the plan</>}
+              {calMode === 'awaiting-second' && <>Step 2: <b>Click the other end</b> of that distance</>}
+            </span>
+            <button className="cal-cancel" onClick={() => { setCalMode(null); setCalStart(null); setCalEnd(null); }}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Scale modal */}
+        {calMode === 'modal' && (
+          <ScaleModal
+            pxDistance={calPxDistance}
+            onSubmit={handleScaleSubmit}
+            onCancel={() => { setCalMode(null); setCalStart(null); setCalEnd(null); }}
+          />
+        )}
+
+        {/* Hints */}
+        {planUrl && !calMode && (
+          <div className="hints">
+            <div className="hint-grp"><kbd>Drag</kbd>place / move</div>
+            <div className="hint-grp"><kbd>R</kbd>rotate</div>
+            <div className="hint-grp"><kbd>D</kbd>duplicate</div>
+            <div className="hint-grp"><kbd>Del</kbd>remove</div>
+            <div className="hint-grp"><kbd>⌘</kbd>+<kbd>scroll</kbd>zoom</div>
+            <div className="hint-grp"><kbd>Space</kbd>+<kbd>drag</kbd>pan</div>
+          </div>
+        )}
+
+        {/* Scale chip */}
+        {planUrl && !calMode && (
+          <div className="scale-chip">
+            <div className="scale-bar"></div>
+            <span>1 ft = {(pxPerInch * 12).toFixed(1)} px</span>
+            <button onClick={startCalibrate}>Adjust</button>
+          </div>
+        )}
+
+        {/* Dimension tag */}
+        {dimTag && (
+          <div className="dim-tag" style={{ left: dimTag.x, top: dimTag.y }}>{dimTag.txt}</div>
+        )}
+
+        {/* Calibration measurement tag */}
+        {calTag && calTag.txt && (
+          <div className="dim-tag" style={{ left: calTag.x, top: calTag.y }}>{calTag.txt}</div>
+        )}
+
+        {/* Ruler labels (committed measurements) */}
+        {measurements.map(m => {
+          const midX = (m.start.x + m.end.x) / 2;
+          const midY = (m.start.y + m.end.y) / 2;
+          const scr = svgToScreen(midX, midY);
+          const dx = m.end.x - m.start.x;
+          const dy = m.end.y - m.start.y;
+          const inches = Math.sqrt(dx * dx + dy * dy) / pxPerInch;
+          return (
+            <div
+              key={m.id}
+              className="measure-tag"
+              style={{ left: scr.x, top: scr.y - 10 }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <span>{formatLen(inches)}</span>
+              <button className="measure-x" onClick={() => removeMeasurement(m.id)} title="Remove">×</button>
+            </div>
+          );
+        })}
+
+        {/* Ruler preview label */}
+        {measureMode && measureStart && measureCursor && (() => {
+          const midX = (measureStart.x + measureCursor.x) / 2;
+          const midY = (measureStart.y + measureCursor.y) / 2;
+          const scr = svgToScreen(midX, midY);
+          const dx = measureCursor.x - measureStart.x;
+          const dy = measureCursor.y - measureStart.y;
+          const inches = Math.sqrt(dx * dx + dy * dy) / pxPerInch;
+          return (
+            <div className="measure-tag preview" style={{ left: scr.x, top: scr.y - 10 }}>
+              <span>{formatLen(inches)}</span>
+            </div>
+          );
+        })()}
+
+        {/* Palette drag ghost */}
+        {ghost && (
+          <div
+            className="drag-ghost"
+            style={{
+              left: ghost.x,
+              top: ghost.y,
+              width: ghost.w,
+              height: ghost.h,
+            }}
+          >
+            <svg
+              width={ghost.w}
+              height={ghost.h}
+              viewBox={`0 0 ${ghost.item.w} ${ghost.item.h}`}
+              className="f-shadow"
+            >
+              <FurnitureShape item={ghost.item} />
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+
+  </script>
+</body>
+</html>
