@@ -8,7 +8,6 @@ No build step · No dependencies to install · No backend
 
 ![FloorIt: arranging furniture on a floor plan](docs/screenshots/hero.png)
 
----
 
 ## ✨ What it does
 
@@ -30,7 +29,6 @@ move a thing.
 | 💾 **Autosave + Export/Import** | Your layout auto-saves to the browser. Export the whole plan (image + furniture + scale) to a portable `.json` and load it anywhere. |
 | 🎨 **Warm, tactile UI** | Soft top-down furniture art and a homey palette. It actually feels nice to plan in. |
 
----
 
 ## 📸 Screenshots
 
@@ -55,7 +53,6 @@ walkways, clearances, and "does the couch leave room to walk?"
 
 ![Measuring distances on the plan with the ruler](docs/screenshots/ruler.png)
 
----
 
 ## 🚀 Getting started
 
