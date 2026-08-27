@@ -90,3 +90,7 @@ FloorIt juggles three coordinate spaces, and `pxPerInch` is the bridge between t
 
 Furniture is rendered as lightweight top-down SVG, each shape drawn in its own inch-space coordinate
 system and dispatched by `kind`.
+
+## 📄 License
+
+[MIT](LICENSE) — use it, fork it, ship it.
