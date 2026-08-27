@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Floor-plan images dropped in locally. These are pictures of people's homes —
+# keep them out of git. The app reads uploads client-side via FileReader and
+# never needs this directory committed.
+uploads/
+
+# Exported / saved layouts (may describe a real home)
+floor-plan-*.json
+*.floorplan.json
